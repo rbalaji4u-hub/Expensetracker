@@ -11,6 +11,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<!-- Tesseract.js for Receipt Reading (OCR) -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
   :root{
     --bg:#FBF7F1;
@@ -137,6 +139,30 @@
   .btn.ghost{background:transparent;border:1.5px solid var(--line);color:var(--primary);}
   .btn.small{width:auto;padding:8px 14px;font-size:13px;margin-top:0;border-radius:999px;}
 
+  /* Receipt OCR Styles */
+  .ocr-btn-wrap{
+    background:#F3EBE1; border:2px dashed var(--accent); border-radius:12px;
+    padding:12px; text-align:center; margin-bottom:14px; cursor:pointer;
+  }
+  .ocr-btn-wrap:hover{ background:#ECE2D5; }
+  .bill-preview-box{
+    position:relative; display:none; margin-top:8px; border-radius:10px; overflow:hidden;
+    max-height:180px; border:1px solid var(--line); background:#000; text-align:center;
+  }
+  .bill-preview-box img{ height:180px; object-fit:contain; width:100%; }
+  .bill-remove-btn{
+    position:absolute; top:6px; right:6px; background:rgba(0,0,0,0.6); color:#fff;
+    border:none; border-radius:50%; width:26px; height:26px; cursor:pointer; font-weight:bold;
+  }
+  .ocr-status{ font-size:12px; font-weight:600; color:var(--teal); margin-top:4px; display:none; }
+
+  /* Modal for viewing scanned bills */
+  .modal{
+    display:none; position:fixed; z-index:100; inset:0; background:rgba(0,0,0,0.85);
+    align-items:center; justify-center; padding:16px;
+  }
+  .modal img{ max-width:100%; max-height:85vh; border-radius:12px; object-fit:contain; }
+
   /* expense list */
   .exp-date-group{margin-bottom:16px;}
   .exp-date-label{font-size:12.5px;font-weight:700;color:var(--muted);margin:0 0 8px 4px;text-transform:uppercase;letter-spacing:.05em;}
@@ -154,6 +180,7 @@
   .exp-amt{font-size:16px;}
   .pay-badge{display:inline-block;background:var(--accent-soft);color:#7A4B12;font-size:10.5px;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:4px;}
   .recur-badge{display:inline-block;background:var(--teal-soft);color:var(--teal);font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;margin-top:3px;}
+  .bill-badge{display:inline-block;background:var(--accent-soft);color:var(--primary);font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;margin-top:3px;cursor:pointer;}
   .del-x{background:none;border:none;color:var(--muted);font-size:18px;padding:4px 2px;cursor:pointer;flex:none;}
 
   .empty{text-align:center;padding:36px 20px;color:var(--muted);}
@@ -264,7 +291,22 @@
     <div class="card">
       <div class="section-title">New Expense</div>
 
-      <label>Amount (₹)</label>
+      <!-- SCAN / ATTACH BILL -->
+      <div class="ocr-btn-wrap" onclick="document.getElementById('f_billInput').click()">
+        <span style="font-size:20px;">📷</span>
+        <div style="font-weight:700;font-size:14px;color:var(--primary);margin-top:2px;">Scan or Attach Bill</div>
+        <div style="font-size:11.5px;color:var(--muted);">Reads total amount automatically & attaches receipt</div>
+      </div>
+      <input type="file" id="f_billInput" accept="image/*" capture="environment" style="display:none;">
+      
+      <div class="ocr-status" id="ocrStatus">🔍 Reading bill details…</div>
+      
+      <div class="bill-preview-box" id="billPreviewBox">
+        <button class="bill-remove-btn" id="removeBillBtn">✕</button>
+        <img id="billPreviewImg" src="" alt="Bill Preview">
+      </div>
+
+      <label style="margin-top:12px;">Amount (₹)</label>
       <input type="number" id="f_amount" inputmode="decimal" placeholder="0" min="0" step="0.01">
 
       <label>Category</label>
@@ -433,6 +475,11 @@
 
 </main>
 
+<!-- BILL IMAGE VIEW MODAL -->
+<div class="modal" id="billModal" onclick="this.style.display='none'">
+  <img id="modalImg" src="" alt="Full Bill View">
+</div>
+
 <nav class="tabbar">
   <button data-screen="add" class="active"><span class="ic">➕</span>Add</button>
   <button data-screen="list"><span class="ic">🧾</span>Expenses</button>
@@ -470,6 +517,7 @@ let db=null, auth=null;
 let members=[], categories=[], payModes=[], expenses=[];
 let currentUserId = localStorage.getItem('ghar_currentUser') || '';
 let dashFilterUserId = 'USER_DEFAULT';
+let currentBillBase64 = null;
 let unsubMembers=null, unsubCategories=null, unsubPayModes=null, unsubExpenses=null;
 
 function fmt(n){ return '₹' + Number(n||0).toLocaleString('en-IN', {maximumFractionDigits:0}); }
@@ -646,17 +694,129 @@ document.getElementById('profileSelect').addEventListener('change', e=>{
     const pwd = prompt(`Enter Password to switch to ${targetMember.name}:`);
     if(pwd !== "1234"){
       alert("Incorrect password!");
-      renderProfileSelect(); // Reset selector back
+      renderProfileSelect();
       return;
     }
   }
 
   currentUserId = selectedId;
-  dashFilterUserId = 'USER_DEFAULT'; // Reset dashboard filter to newly selected user
+  dashFilterUserId = 'USER_DEFAULT';
   localStorage.setItem('ghar_currentUser', currentUserId);
   renderPaidByOptions();
   renderExpenseList(); renderDashboard(); renderUpcoming(); renderShops();
 });
+
+/* ============ BILL SCAN & OCR HANDLER ============ */
+document.getElementById('f_billInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(event) {
+    // Compress and downscale image to store comfortably in Firestore Base64 string
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      const MAX_WIDTH = 800;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > MAX_WIDTH) {
+        height = Math.round((height * MAX_WIDTH) / width);
+        width = MAX_WIDTH;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      currentBillBase64 = canvas.toDataURL('image/jpeg', 0.6);
+      document.getElementById('billPreviewImg').src = currentBillBase64;
+      document.getElementById('billPreviewBox').style.display = 'block';
+
+      // Perform OCR
+      runReceiptOCR(currentBillBase64);
+    };
+    img.src = event.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById('removeBillBtn').addEventListener('click', () => {
+  currentBillBase64 = null;
+  document.getElementById('billPreviewBox').style.display = 'none';
+  document.getElementById('billPreviewImg').src = '';
+  document.getElementById('f_billInput').value = '';
+});
+
+async function runReceiptOCR(imageSrc) {
+  const statusEl = document.getElementById('ocrStatus');
+  statusEl.style.display = 'block';
+  statusEl.textContent = '🔍 Scanning receipt for total amount…';
+
+  try {
+    const worker = await Tesseract.createWorker('eng');
+    const ret = await worker.recognize(imageSrc);
+    await worker.terminate();
+
+    const text = ret.data.text;
+    const extractedAmount = parseTotalFromReceipt(text);
+
+    if (extractedAmount) {
+      document.getElementById('f_amount').value = extractedAmount;
+      statusEl.textContent = `✓ Auto-detected Total: ₹${extractedAmount}`;
+    } else {
+      statusEl.textContent = '⚠️ Could not clearly extract total. Please type manually.';
+    }
+  } catch (err) {
+    statusEl.textContent = '⚠️ Could not read image text.';
+  }
+}
+
+function parseTotalFromReceipt(text) {
+  const lines = text.split('\n');
+  let possibleAmounts = [];
+
+  // Keywords that usually precede final totals
+  const totalKeywords = ['total', 'grand total', 'net total', 'amount due', 'net amt', 'payable', 'balance due', 'total:'];
+
+  for (let line of lines) {
+    const lowerLine = line.toLowerCase();
+    
+    // Check if line contains a total keyword
+    const matched = totalKeywords.some(kw => lowerLine.includes(kw));
+    if (matched) {
+      // Find numbers/prices in that line
+      const numbers = line.match(/(?:(?:₹|rs\.?|inr)?\s*)(\d+[\.,]\d{2}|\d+)/gi);
+      if (numbers) {
+        numbers.forEach(numStr => {
+          let cleaned = numStr.replace(/[^0-9\.]/g, '');
+          let val = parseFloat(cleaned);
+          if (!isNaN(val) && val > 0) possibleAmounts.push(val);
+        });
+      }
+    }
+  }
+
+  if (possibleAmounts.length > 0) {
+    return Math.max(...possibleAmounts); // Take the maximum matched total
+  }
+
+  // Fallback: look for general amounts across the document
+  const allNumbers = text.match(/(?:₹|rs\.?)\s*(\d+[\.,]\d{2}|\d+)/gi);
+  if (allNumbers) {
+    let vals = allNumbers.map(n => parseFloat(n.replace(/[^0-9\.]/g, ''))).filter(v => !isNaN(v));
+    if (vals.length > 0) return Math.max(...vals);
+  }
+
+  return null;
+}
+
+function viewBillModal(base64Image) {
+  document.getElementById('modalImg').src = base64Image;
+  document.getElementById('billModal').style.display = 'flex';
+}
 
 /* ============ ADD EXPENSE FORM ============ */
 function renderCategoryDropdown(){
@@ -708,6 +868,7 @@ document.getElementById('saveExpenseBtn').addEventListener('click', async ()=>{
     amount, category: selectedCategory, payMode, date, paidBy, shop, note,
     enteredBy: currentUserId,
     isRecurring: recurring,
+    billImage: currentBillBase64 || null,
     createdAt: Date.now()
   };
   if(recurring){
@@ -730,6 +891,13 @@ document.getElementById('saveExpenseBtn').addEventListener('click', async ()=>{
     document.getElementById('f_recurring').checked=false;
     document.getElementById('recurringBox').classList.remove('show');
     document.getElementById('f_date').valueAsDate = new Date();
+    
+    // Reset Bill Upload
+    currentBillBase64 = null;
+    document.getElementById('billPreviewBox').style.display = 'none';
+    document.getElementById('f_billInput').value = '';
+    document.getElementById('ocrStatus').style.display = 'none';
+
     goTo('list');
   }catch(e){ alert('Could not save: ' + e.message); }
   btn.disabled = false; btn.textContent = 'Save Expense';
@@ -786,6 +954,7 @@ function doRenderList(){
           <div class="exp-cat">${e.category} <span class="pay-badge">${e.payMode || 'Cash'}</span></div>
           <div class="exp-meta">${e.shop ? e.shop+' • ':''}${payer?payer.name:''}${isMaster() && enterer ? ' • entered by '+enterer.name : ''}</div>
           ${e.isRecurring ? `<span class="recur-badge">🔁 ${e.frequency}</span>` : ''}
+          ${e.billImage ? `<span class="bill-badge" onclick="viewBillModal('${e.billImage}')">🖼️ View Bill</span>` : ''}
         </div>
         <div class="exp-right"><div class="exp-amt amount">${fmt(e.amount)}</div></div>
         <button class="del-x" data-id="${e.id}">✕</button>
