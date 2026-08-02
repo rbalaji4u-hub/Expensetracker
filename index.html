@@ -156,12 +156,16 @@
   }
   .ocr-status{ font-size:12px; font-weight:600; color:var(--teal); margin-top:4px; display:none; }
 
-  /* Modal for viewing scanned bills */
+  /* Modals */
   .modal{
-    display:none; position:fixed; z-index:100; inset:0; background:rgba(0,0,0,0.85);
-    align-items:center; justify-center; padding:16px;
+    display:none; position:fixed; z-index:100; inset:0; background:rgba(0,0,0,0.75);
+    align-items:center; justify-content:center; padding:16px; overflow-y:auto;
   }
-  .modal img{ max-width:100%; max-height:85vh; border-radius:12px; object-fit:contain; }
+  .modal img.full-bill{ max-width:100%; max-height:85vh; border-radius:12px; object-fit:contain; }
+  .modal-card{
+    background:var(--surface); border-radius:var(--radius); padding:20px;
+    max-width:500px; width:100%; max-height:90vh; overflow-y:auto; box-shadow:var(--shadow);
+  }
 
   /* expense list */
   .exp-date-group{margin-bottom:16px;}
@@ -169,18 +173,20 @@
   .exp-item{
     display:flex;align-items:center;gap:12px;
     background:var(--surface);border:1px solid var(--line);border-radius:14px;
-    padding:12px;margin-bottom:8px;
+    padding:12px;margin-bottom:8px;cursor:pointer;transition:border-color 0.15s;
   }
+  .exp-item:hover{ border-color:var(--accent); }
   .exp-cat-dot{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;
     background:var(--accent-soft);color:var(--primary);font-weight:800;font-size:15px;flex:none;}
   .exp-mid{flex:1;min-width:0;}
   .exp-cat{font-weight:700;font-size:14.5px;}
   .exp-meta{font-size:12.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .exp-note{font-size:12px;color:var(--primary-soft);font-style:italic;margin-top:4px;background:#F6F1EA;padding:3px 8px;border-radius:6px;display:inline-block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .exp-right{text-align:right;flex:none;}
   .exp-amt{font-size:16px;}
   .pay-badge{display:inline-block;background:var(--accent-soft);color:#7A4B12;font-size:10.5px;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:4px;}
   .recur-badge{display:inline-block;background:var(--teal-soft);color:var(--teal);font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;margin-top:3px;}
-  .bill-badge{display:inline-block;background:var(--accent-soft);color:var(--primary);font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;margin-top:3px;cursor:pointer;}
+  .bill-badge{display:inline-block;background:var(--accent-soft);color:var(--primary);font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;margin-top:3px;}
   .del-x{background:none;border:none;color:var(--muted);font-size:18px;padding:4px 2px;cursor:pointer;flex:none;}
 
   .empty{text-align:center;padding:36px 20px;color:var(--muted);}
@@ -399,7 +405,7 @@
         <div class="val" id="statMonthTotal">₹0</div>
       </div>
       <div class="stat-card alt">
-        <div class="lbl">Due next 7 days</div>
+        <div class="lbl">Dues for this month</div>
         <div class="val" id="statUpcomingTotal">₹0</div>
       </div>
     </div>
@@ -418,10 +424,19 @@
 
   <!-- UPCOMING -->
   <section class="screen" id="screen-upcoming">
+    <div class="card" style="padding:12px 16px; margin-bottom:14px;">
+      <label style="margin-top:0;">Select Timeframe</label>
+      <select id="upcomingTimeframeSelect">
+        <option value="7days">Next 7 Days</option>
+        <option value="thisMonth" selected>Current Month</option>
+        <option value="nextMonth">Next Month</option>
+      </select>
+    </div>
+
     <div class="card" style="background:var(--primary);color:#fff;">
-      <div class="section-title" style="color:#D8C7DE;">Coming Week</div>
+      <div class="section-title" id="upcomingHeaderTitle" style="color:#D8C7DE;">Current Month Remaining</div>
       <div style="font-family:'Poppins';font-weight:800;font-size:24px;" id="upcomingHeaderTotal">₹0 expected</div>
-      <div style="font-size:12.5px;color:#D8C7DE;margin-top:2px;">Based on your recurring expenses</div>
+      <div style="font-size:12.5px;color:#D8C7DE;margin-top:2px;">Unpaid recurring expenses</div>
     </div>
     <div id="upcomingListWrap"></div>
   </section>
@@ -477,7 +492,102 @@
 
 <!-- BILL IMAGE VIEW MODAL -->
 <div class="modal" id="billModal" onclick="this.style.display='none'">
-  <img id="modalImg" src="" alt="Full Bill View">
+  <img id="modalImg" class="full-bill" src="" alt="Full Bill View">
+</div>
+
+<!-- EDIT EXPENSE MODAL -->
+<div class="modal" id="editModal">
+  <div class="modal-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="font-family:'Poppins';font-weight:700;font-size:18px;color:var(--primary);">Edit Expense</div>
+      <button style="background:none;border:none;font-size:22px;cursor:pointer;" onclick="closeEditModal()">✕</button>
+    </div>
+
+    <input type="hidden" id="edit_id">
+
+    <!-- EDIT BILL SCAN / ATTACH -->
+    <div class="ocr-btn-wrap" onclick="document.getElementById('edit_billInput').click()">
+      <span style="font-size:20px;">📷</span>
+      <div style="font-weight:700;font-size:14px;color:var(--primary);margin-top:2px;">Update / Attach Bill</div>
+    </div>
+    <input type="file" id="edit_billInput" accept="image/*" capture="environment" style="display:none;">
+    <div class="ocr-status" id="edit_ocrStatus">🔍 Reading bill details…</div>
+
+    <div class="bill-preview-box" id="edit_billPreviewBox">
+      <button class="bill-remove-btn" id="edit_removeBillBtn">✕</button>
+      <img id="edit_billPreviewImg" src="" alt="Bill Preview">
+    </div>
+
+    <label style="margin-top:12px;">Amount (₹)</label>
+    <input type="number" id="edit_amount" inputmode="decimal" min="0" step="0.01">
+
+    <label>Category</label>
+    <select id="edit_categorySelect"></select>
+
+    <div class="row2">
+      <div>
+        <label>Date</label>
+        <input type="date" id="edit_date">
+      </div>
+      <div>
+        <label>Paid by</label>
+        <select id="edit_paidBy"></select>
+      </div>
+    </div>
+
+    <label>Payment Method</label>
+    <select id="edit_payModeSelect"></select>
+
+    <label>Shop / Vendor</label>
+    <input type="text" id="edit_shop" list="shopList">
+
+    <label>Note</label>
+    <input type="text" id="edit_note" placeholder="Add note or description">
+
+    <!-- EDIT RECURRING TOGGLE & OPTIONS -->
+    <div class="toggle-row">
+      <div>
+        <div style="font-weight:700;font-size:14.5px;">Recurring expense?</div>
+        <div style="font-size:12px;color:var(--muted);">e.g. rent, EMI, subscriptions</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="edit_recurring">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="recurring-box" id="edit_recurringBox">
+      <label style="margin-top:0;">Frequency</label>
+      <select id="edit_frequency">
+        <option value="weekly">Weekly</option>
+        <option value="monthly" selected>Monthly</option>
+        <option value="yearly">Yearly</option>
+      </select>
+
+      <div id="edit_freqWeekly" style="display:none;">
+        <label>Day of week</label>
+        <select id="edit_weekday">
+          <option value="0">Sunday</option><option value="1">Monday</option>
+          <option value="2">Tuesday</option><option value="3">Wednesday</option>
+          <option value="4">Thursday</option><option value="5">Friday</option>
+          <option value="6">Saturday</option>
+        </select>
+      </div>
+      <div id="edit_freqMonthly">
+        <label>Day of month</label>
+        <input type="number" id="edit_monthday" min="1" max="31" value="1">
+      </div>
+      <div id="edit_freqYearly" style="display:none;">
+        <label>Date every year</label>
+        <input type="date" id="edit_yearlydate">
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:18px;">
+      <button class="btn ghost" onclick="closeEditModal()" style="margin-top:0;">Cancel</button>
+      <button class="btn" id="updateExpenseBtn" style="margin-top:0;">Update Expense</button>
+    </div>
+  </div>
 </div>
 
 <nav class="tabbar">
@@ -518,6 +628,7 @@ let members=[], categories=[], payModes=[], expenses=[];
 let currentUserId = localStorage.getItem('ghar_currentUser') || '';
 let dashFilterUserId = 'USER_DEFAULT';
 let currentBillBase64 = null;
+let editBillBase64 = null;
 let unsubMembers=null, unsubCategories=null, unsubPayModes=null, unsubExpenses=null;
 
 function fmt(n){ return '₹' + Number(n||0).toLocaleString('en-IN', {maximumFractionDigits:0}); }
@@ -689,7 +800,6 @@ document.getElementById('profileSelect').addEventListener('change', e=>{
   const selectedId = e.target.value;
   const targetMember = members.find(m => m.id === selectedId);
 
-  // Require Password '1234' ONLY when switching to a Master profile
   if (targetMember && targetMember.isMaster) {
     const pwd = prompt(`Enter Password to switch to ${targetMember.name}:`);
     if(pwd !== "1234"){
@@ -707,13 +817,9 @@ document.getElementById('profileSelect').addEventListener('change', e=>{
 });
 
 /* ============ BILL SCAN & OCR HANDLER ============ */
-document.getElementById('f_billInput').addEventListener('change', function(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
+function processImageFile(file, callback) {
   const reader = new FileReader();
   reader.onload = function(event) {
-    // Compress and downscale image to store comfortably in Firestore Base64 string
     const img = new Image();
     img.onload = function() {
       const canvas = document.createElement('canvas');
@@ -731,16 +837,22 @@ document.getElementById('f_billInput').addEventListener('change', function(e) {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, width, height);
 
-      currentBillBase64 = canvas.toDataURL('image/jpeg', 0.6);
-      document.getElementById('billPreviewImg').src = currentBillBase64;
-      document.getElementById('billPreviewBox').style.display = 'block';
-
-      // Perform OCR
-      runReceiptOCR(currentBillBase64);
+      callback(canvas.toDataURL('image/jpeg', 0.6));
     };
     img.src = event.target.result;
   };
   reader.readAsDataURL(file);
+}
+
+document.getElementById('f_billInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  processImageFile(file, base64 => {
+    currentBillBase64 = base64;
+    document.getElementById('billPreviewImg').src = currentBillBase64;
+    document.getElementById('billPreviewBox').style.display = 'block';
+    runReceiptOCR(currentBillBase64, 'ocrStatus', 'f_amount');
+  });
 });
 
 document.getElementById('removeBillBtn').addEventListener('click', () => {
@@ -750,8 +862,27 @@ document.getElementById('removeBillBtn').addEventListener('click', () => {
   document.getElementById('f_billInput').value = '';
 });
 
-async function runReceiptOCR(imageSrc) {
-  const statusEl = document.getElementById('ocrStatus');
+/* Edit Modal OCR Trigger */
+document.getElementById('edit_billInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  processImageFile(file, base64 => {
+    editBillBase64 = base64;
+    document.getElementById('edit_billPreviewImg').src = editBillBase64;
+    document.getElementById('edit_billPreviewBox').style.display = 'block';
+    runReceiptOCR(editBillBase64, 'edit_ocrStatus', 'edit_amount');
+  });
+});
+
+document.getElementById('edit_removeBillBtn').addEventListener('click', () => {
+  editBillBase64 = null;
+  document.getElementById('edit_billPreviewBox').style.display = 'none';
+  document.getElementById('edit_billPreviewImg').src = '';
+  document.getElementById('edit_billInput').value = '';
+});
+
+async function runReceiptOCR(imageSrc, statusElemId, targetAmountElemId) {
+  const statusEl = document.getElementById(statusElemId);
   statusEl.style.display = 'block';
   statusEl.textContent = '🔍 Scanning receipt for total amount…';
 
@@ -764,7 +895,7 @@ async function runReceiptOCR(imageSrc) {
     const extractedAmount = parseTotalFromReceipt(text);
 
     if (extractedAmount) {
-      document.getElementById('f_amount').value = extractedAmount;
+      document.getElementById(targetAmountElemId).value = extractedAmount;
       statusEl.textContent = `✓ Auto-detected Total: ₹${extractedAmount}`;
     } else {
       statusEl.textContent = '⚠️ Could not clearly extract total. Please type manually.';
@@ -777,17 +908,12 @@ async function runReceiptOCR(imageSrc) {
 function parseTotalFromReceipt(text) {
   const lines = text.split('\n');
   let possibleAmounts = [];
-
-  // Keywords that usually precede final totals
   const totalKeywords = ['total', 'grand total', 'net total', 'amount due', 'net amt', 'payable', 'balance due', 'total:'];
 
   for (let line of lines) {
     const lowerLine = line.toLowerCase();
-    
-    // Check if line contains a total keyword
     const matched = totalKeywords.some(kw => lowerLine.includes(kw));
     if (matched) {
-      // Find numbers/prices in that line
       const numbers = line.match(/(?:(?:₹|rs\.?|inr)?\s*)(\d+[\.,]\d{2}|\d+)/gi);
       if (numbers) {
         numbers.forEach(numStr => {
@@ -799,11 +925,8 @@ function parseTotalFromReceipt(text) {
     }
   }
 
-  if (possibleAmounts.length > 0) {
-    return Math.max(...possibleAmounts); // Take the maximum matched total
-  }
+  if (possibleAmounts.length > 0) return Math.max(...possibleAmounts);
 
-  // Fallback: look for general amounts across the document
   const allNumbers = text.match(/(?:₹|rs\.?)\s*(\d+[\.,]\d{2}|\d+)/gi);
   if (allNumbers) {
     let vals = allNumbers.map(n => parseFloat(n.replace(/[^0-9\.]/g, ''))).filter(v => !isNaN(v));
@@ -813,10 +936,147 @@ function parseTotalFromReceipt(text) {
   return null;
 }
 
-function viewBillModal(base64Image) {
+function viewBillModal(e, base64Image) {
+  e.stopPropagation();
   document.getElementById('modalImg').src = base64Image;
   document.getElementById('billModal').style.display = 'flex';
 }
+
+/* ============ EDIT RECURRING LISTENERS ============ */
+document.getElementById('edit_recurring').addEventListener('change', e => {
+  document.getElementById('edit_recurringBox').classList.toggle('show', e.target.checked);
+});
+
+document.getElementById('edit_frequency').addEventListener('change', e => {
+  document.getElementById('edit_freqWeekly').style.display = e.target.value === 'weekly' ? 'block' : 'none';
+  document.getElementById('edit_freqMonthly').style.display = e.target.value === 'monthly' ? 'block' : 'none';
+  document.getElementById('edit_freqYearly').style.display = e.target.value === 'yearly' ? 'block' : 'none';
+});
+
+/* ============ EDIT MODAL FUNCTIONS ============ */
+function openEditModal(expId) {
+  const exp = expenses.find(e => e.id === expId);
+  if (!exp) return;
+
+  document.getElementById('edit_id').value = exp.id;
+  document.getElementById('edit_amount').value = exp.amount;
+  document.getElementById('edit_date').value = exp.date;
+  document.getElementById('edit_shop').value = exp.shop || '';
+  document.getElementById('edit_note').value = exp.note || '';
+
+  const catSel = document.getElementById('edit_categorySelect');
+  catSel.innerHTML = categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+  catSel.value = exp.category;
+
+  const paySel = document.getElementById('edit_payModeSelect');
+  paySel.innerHTML = payModes.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+  paySel.value = exp.payMode || payModes[0]?.name;
+
+  const paidBySel = document.getElementById('edit_paidBy');
+  paidBySel.innerHTML = nonMasterMembers().map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+  paidBySel.value = exp.paidBy;
+
+  // Pre-populate recurring fields
+  const isRec = !!exp.isRecurring;
+  const recToggle = document.getElementById('edit_recurring');
+  recToggle.checked = isRec;
+  
+  const recBox = document.getElementById('edit_recurringBox');
+  if (isRec) recBox.classList.add('show');
+  else recBox.classList.remove('show');
+
+  const freq = exp.frequency || 'monthly';
+  document.getElementById('edit_frequency').value = freq;
+  document.getElementById('edit_freqWeekly').style.display = freq === 'weekly' ? 'block' : 'none';
+  document.getElementById('edit_freqMonthly').style.display = freq === 'monthly' ? 'block' : 'none';
+  document.getElementById('edit_freqYearly').style.display = freq === 'yearly' ? 'block' : 'none';
+
+  if (exp.recurWeekday !== undefined) document.getElementById('edit_weekday').value = exp.recurWeekday;
+  if (exp.recurMonthday !== undefined) document.getElementById('edit_monthday').value = exp.recurMonthday;
+  if (exp.recurMonth !== undefined && exp.recurDay !== undefined) {
+    const y = new Date().getFullYear();
+    const m = String(exp.recurMonth + 1).padStart(2, '0');
+    const d = String(exp.recurDay).padStart(2, '0');
+    document.getElementById('edit_yearlydate').value = `${y}-${m}-${d}`;
+  } else {
+    document.getElementById('edit_yearlydate').value = '';
+  }
+
+  editBillBase64 = exp.billImage || null;
+  const previewBox = document.getElementById('edit_billPreviewBox');
+  if (editBillBase64) {
+    document.getElementById('edit_billPreviewImg').src = editBillBase64;
+    previewBox.style.display = 'block';
+  } else {
+    previewBox.style.display = 'none';
+    document.getElementById('edit_billPreviewImg').src = '';
+  }
+  document.getElementById('edit_ocrStatus').style.display = 'none';
+
+  document.getElementById('editModal').style.display = 'flex';
+}
+
+function closeEditModal() {
+  document.getElementById('editModal').style.display = 'none';
+}
+
+document.getElementById('updateExpenseBtn').addEventListener('click', async () => {
+  const id = document.getElementById('edit_id').value;
+  const amount = parseFloat(document.getElementById('edit_amount').value);
+  const category = document.getElementById('edit_categorySelect').value;
+  const date = document.getElementById('edit_date').value;
+  const paidBy = document.getElementById('edit_paidBy').value;
+  const payMode = document.getElementById('edit_payModeSelect').value;
+  const shop = document.getElementById('edit_shop').value.trim();
+  const note = document.getElementById('edit_note').value.trim();
+  const isRecurring = document.getElementById('edit_recurring').checked;
+
+  if (!amount || amount <= 0) { alert('Please enter a valid amount.'); return; }
+  if (!date) { alert('Please select a date.'); return; }
+
+  const updatedExp = {
+    amount, category, date, paidBy, payMode, shop, note,
+    isRecurring,
+    billImage: editBillBase64 || null
+  };
+
+  if (isRecurring) {
+    const freq = document.getElementById('edit_frequency').value;
+    updatedExp.frequency = freq;
+    if (freq === 'weekly') {
+      updatedExp.recurWeekday = parseInt(document.getElementById('edit_weekday').value, 10);
+    } else if (freq === 'monthly') {
+      updatedExp.recurMonthday = Math.min(31, Math.max(1, parseInt(document.getElementById('edit_monthday').value, 10) || 1));
+    } else if (freq === 'yearly') {
+      const yd = document.getElementById('edit_yearlydate').value;
+      if (yd) {
+        const d = new Date(yd + 'T00:00:00');
+        updatedExp.recurMonth = d.getMonth();
+        updatedExp.recurDay = d.getDate();
+      }
+    }
+  } else {
+    // Clear recurring properties if toggled off
+    updatedExp.frequency = firebase.firestore.FieldValue.delete();
+    updatedExp.recurWeekday = firebase.firestore.FieldValue.delete();
+    updatedExp.recurMonthday = firebase.firestore.FieldValue.delete();
+    updatedExp.recurMonth = firebase.firestore.FieldValue.delete();
+    updatedExp.recurDay = firebase.firestore.FieldValue.delete();
+  }
+
+  const btn = document.getElementById('updateExpenseBtn');
+  btn.disabled = true;
+  btn.textContent = 'Updating…';
+
+  try {
+    await db.collection('expenses').doc(id).update(updatedExp);
+    closeEditModal();
+  } catch(e) {
+    alert('Failed to update expense: ' + e.message);
+  }
+  btn.disabled = false;
+  btn.textContent = 'Update Expense';
+});
 
 /* ============ ADD EXPENSE FORM ============ */
 function renderCategoryDropdown(){
@@ -892,7 +1152,6 @@ document.getElementById('saveExpenseBtn').addEventListener('click', async ()=>{
     document.getElementById('recurringBox').classList.remove('show');
     document.getElementById('f_date').valueAsDate = new Date();
     
-    // Reset Bill Upload
     currentBillBase64 = null;
     document.getElementById('billPreviewBox').style.display = 'none';
     document.getElementById('f_billInput').value = '';
@@ -948,29 +1207,31 @@ function doRenderList(){
     const items = groups[date].map(e=>{
       const payer = members.find(m=>m.id===e.paidBy);
       const enterer = members.find(m=>m.id===e.enteredBy);
-      return `<div class="exp-item">
+      return `<div class="exp-item" onclick="openEditModal('${e.id}')">
         <div class="exp-cat-dot" style="background:${catColor(e.category)}22;color:${catColor(e.category)}">${e.category.charAt(0)}</div>
         <div class="exp-mid">
           <div class="exp-cat">${e.category} <span class="pay-badge">${e.payMode || 'Cash'}</span></div>
           <div class="exp-meta">${e.shop ? e.shop+' • ':''}${payer?payer.name:''}${isMaster() && enterer ? ' • entered by '+enterer.name : ''}</div>
-          ${e.isRecurring ? `<span class="recur-badge">🔁 ${e.frequency}</span>` : ''}
-          ${e.billImage ? `<span class="bill-badge" onclick="viewBillModal('${e.billImage}')">🖼️ View Bill</span>` : ''}
+          ${e.note ? `<div class="exp-note">📝 ${e.note}</div>` : ''}
+          <div style="margin-top:2px;">
+            ${e.isRecurring ? `<span class="recur-badge">🔁 ${e.frequency}</span>` : ''}
+            ${e.billImage ? `<span class="bill-badge" onclick="viewBillModal(event, '${e.billImage}')">🖼️ View Bill</span>` : ''}
+          </div>
         </div>
         <div class="exp-right"><div class="exp-amt amount">${fmt(e.amount)}</div></div>
-        <button class="del-x" data-id="${e.id}">✕</button>
+        <button class="del-x" onclick="deleteExpense(event, '${e.id}')">✕</button>
       </div>`;
     }).join('');
     return `<div class="exp-date-group"><div class="exp-date-label">${dLabel}</div>${items}</div>`;
   }).join('');
+}
 
-  wrap.querySelectorAll('.del-x').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      if(confirm('Delete this expense?')){
-        try{ await db.collection('expenses').doc(btn.dataset.id).delete(); }
-        catch(e){ alert('Could not delete: ' + e.message); }
-      }
-    });
-  });
+async function deleteExpense(e, id) {
+  e.stopPropagation();
+  if(confirm('Delete this expense?')){
+    try{ await db.collection('expenses').doc(id).delete(); }
+    catch(err){ alert('Could not delete: ' + err.message); }
+  }
 }
 
 /* ============ DASHBOARD ============ */
@@ -996,7 +1257,6 @@ function renderDashUserSelect() {
 document.getElementById('dashUserSelect').addEventListener('change', e => {
   const targetVal = e.target.value;
 
-  // Protect Combined View with Master Password
   if (targetVal === 'ALL') {
     const pwd = prompt("Enter Master Password for Combined View:");
     if (pwd !== "1234") {
@@ -1024,9 +1284,9 @@ function renderDashboard(){
   const monthTotal = monthExpenses.reduce((s,e)=>s+e.amount,0);
   document.getElementById('statMonthTotal').textContent = fmt(monthTotal);
 
-  const upcoming = computeUpcoming(7, sourceExpenses);
-  const upTotal = upcoming.reduce((s,u)=>s+u.expense.amount,0);
-  document.getElementById('statUpcomingTotal').textContent = fmt(upTotal);
+  const upcomingThisMonth = computeUpcoming('thisMonth', sourceExpenses);
+  const monthDuesTotal = upcomingThisMonth.reduce((s,u)=>s+u.expense.amount,0);
+  document.getElementById('statUpcomingTotal').textContent = fmt(monthDuesTotal);
 
   const totals = {};
   monthExpenses.forEach(e=>{ totals[e.category]=(totals[e.category]||0)+e.amount; });
@@ -1079,38 +1339,98 @@ function renderDashboard(){
   }
 }
 
-/* ============ RECURRING ENGINE ============ */
+/* ============ RECURRING ENGINE (EXCLUDES ALREADY PAID) ============ */
 function lastDayOfMonth(y,m){ return new Date(y, m+1, 0).getDate(); }
-function computeUpcoming(days, expList = visibleExpenses()){
+
+function isAlreadyPaid(recurExp, targetDate, allExpenses) {
+  const dateStr = targetDate.toISOString().slice(0, 10);
+  
+  return allExpenses.some(e => {
+    if (e.category !== recurExp.category) return false;
+    
+    // Monthly recurring check
+    if (recurExp.frequency === 'monthly') {
+      return e.date.slice(0, 7) === dateStr.slice(0, 7);
+    }
+    
+    // Weekly recurring check
+    if (recurExp.frequency === 'weekly') {
+      const expD = new Date(e.date + 'T00:00:00');
+      const targetD = new Date(dateStr + 'T00:00:00');
+      const diffDays = Math.abs((expD - targetD) / (1000 * 60 * 60 * 24));
+      return diffDays <= 3;
+    }
+    
+    // Yearly recurring check
+    if (recurExp.frequency === 'yearly') {
+      return e.date.slice(0, 4) === dateStr.slice(0, 4);
+    }
+
+    return e.date === dateStr;
+  });
+}
+
+function computeUpcoming(mode = 'thisMonth', expList = visibleExpenses()){
   const results = [];
   const pool = expList.filter(e=>e.isRecurring);
   const today = new Date(); today.setHours(0,0,0,0);
-  for(let i=0;i<days;i++){
-    const d = new Date(today); d.setDate(d.getDate()+i);
-    pool.forEach(e=>{
-      let hit=false;
-      if(e.frequency==='weekly' && d.getDay()===e.recurWeekday) hit=true;
-      if(e.frequency==='monthly'){
-        const target = Math.min(e.recurMonthday, lastDayOfMonth(d.getFullYear(), d.getMonth()));
-        if(d.getDate()===target) hit=true;
+  
+  let startDate = new Date(today);
+  let endDate = new Date(today);
+
+  if (mode === '7days') {
+    endDate.setDate(today.getDate() + 6);
+  } else if (mode === 'thisMonth') {
+    startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  } else if (mode === 'nextMonth') {
+    startDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    endDate = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+  }
+
+  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+    const curDate = new Date(d);
+    
+    pool.forEach(e => {
+      let hit = false;
+      if (e.frequency === 'weekly' && curDate.getDay() === e.recurWeekday) hit = true;
+      if (e.frequency === 'monthly') {
+        const target = Math.min(e.recurMonthday, lastDayOfMonth(curDate.getFullYear(), curDate.getMonth()));
+        if (curDate.getDate() === target) hit = true;
       }
-      if(e.frequency==='yearly' && d.getMonth()===e.recurMonth && d.getDate()===e.recurDay) hit=true;
-      if(hit) results.push({ date:new Date(d), expense:e });
+      if (e.frequency === 'yearly' && curDate.getMonth() === e.recurMonth && curDate.getDate() === e.recurDay) hit = true;
+
+      if (hit && !isAlreadyPaid(e, curDate, expList)) {
+        results.push({ date: new Date(curDate), expense: e });
+      }
     });
   }
+
   results.sort((a,b)=>a.date-b.date);
   return results;
 }
 
+/* ============ UPCOMING TAB RENDER ============ */
+document.getElementById('upcomingTimeframeSelect').addEventListener('change', renderUpcoming);
+
 function renderUpcoming(){
-  const list = computeUpcoming(7);
+  const mode = document.getElementById('upcomingTimeframeSelect').value;
+  const list = computeUpcoming(mode);
   const total = list.reduce((s,u)=>s+u.expense.amount,0);
+
+  const titleEl = document.getElementById('upcomingHeaderTitle');
+  if (mode === '7days') titleEl.textContent = 'Next 7 Days';
+  else if (mode === 'thisMonth') titleEl.textContent = 'Current Month Remaining';
+  else if (mode === 'nextMonth') titleEl.textContent = 'Next Month Expected';
+
   document.getElementById('upcomingHeaderTotal').textContent = fmt(total) + ' expected';
   const wrap = document.getElementById('upcomingListWrap');
+  
   if(list.length===0){
-    wrap.innerHTML = `<div class="empty"><div class="big">📅</div>No recurring expenses due in the next 7 days.</div>`;
+    wrap.innerHTML = `<div class="empty"><div class="big">📅</div>No unpaid upcoming expenses for this period.</div>`;
     return;
   }
+  
   wrap.innerHTML = list.map(u=>{
     const payer = members.find(m=>m.id===u.expense.paidBy);
     return `<div class="up-item">
@@ -1147,7 +1467,7 @@ function renderShops(){
 
 function renderShopDetail(shop){
   const shopExpenses = visibleExpenses().filter(e=>e.shop===shop).sort((a,b)=>b.date.localeCompare(a.date));
-  const upcoming = computeUpcoming(7).filter(u=>u.expense.shop===shop);
+  const upcoming = computeUpcoming('thisMonth').filter(u=>u.expense.shop===shop);
   const totalSpent = shopExpenses.reduce((s,e)=>s+e.amount,0);
   const last = shopExpenses[0];
   const detailWrap = document.getElementById('shopDetailWrap');
@@ -1161,13 +1481,12 @@ function renderShopDetail(shop){
       ${last ? `<div style="font-size:12.5px;color:var(--muted);margin-top:10px;">Last purchase: ${new Date(last.date+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})} — ${last.category} (${fmt(last.amount)})</div>` : ''}
       ${upcoming.length>0
         ? upcoming.map(u=>`<div class="need-flag">🛒 ${u.expense.category} needed on ${u.date.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})} (${fmt(u.expense.amount)})</div>`).join('<br>')
-        : `<div class="ok-flag">✓ Nothing recurring due here this week</div>`}
+        : `<div class="ok-flag">✓ Nothing recurring due here this month</div>`}
     </div>`;
 }
 
 /* ============ SETTINGS ============ */
 function renderSettings(){
-  // Members
   const memWrap = document.getElementById('memberManageList');
   memWrap.innerHTML = members.map(m=>`
     <div class="manage-row">
@@ -1181,7 +1500,6 @@ function renderSettings(){
     });
   });
 
-  // Payment Modes
   const payWrap = document.getElementById('payModeManageList');
   payWrap.innerHTML = payModes.map(p=>`
     <div class="manage-row">
@@ -1195,7 +1513,6 @@ function renderSettings(){
     });
   });
 
-  // Categories
   const catWrap = document.getElementById('categoryManageList');
   catWrap.innerHTML = categories.map(c=>`
     <div class="manage-row">
