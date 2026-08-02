@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#3B2545">
+<title>வீடு செலவு · Veedu Selavu — Family Expense Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js" onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js';document.head.appendChild(s);"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<style>
+  :root{
+    --bg:#FBF7F1;
+    --surface:#FFFFFF;
+    --ink:#2A1F2D;
+    --muted:#8A7B8E;
+    --primary:#3B2545;
+    --primary-soft:#5A3E68;
+    --accent:#E89B3C;
+    --accent-soft:#F6D9AE;
+    --teal:#1F6F6B;
+    --teal-soft:#CFE7E4;
+    --danger:#C1503F;
+    --danger-soft:#F4D8D2;
+    --line:#EDE3D8;
+    --radius:16px;
+    --shadow:0 2px 10px rgba(59,37,69,0.08), 0 1px 2px rgba(59,37,69,0.06);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:calc(72px + env(safe-area-inset-bottom));
+    min-height:100vh;
+  }
+  h1,h2,h3,.display{font-family:'Poppins',sans-serif;}
+  .tamil{font-family:'Noto Sans Tamil','Inter',sans-serif;}
+  .amount{font-variant-numeric:tabular-nums;font-weight:700;}
+  button{font-family:inherit;}
+  input,select,textarea{font-family:inherit;}
+
+  /* ---- top bar ---- */
+  .topbar{
+    position:sticky;top:0;z-index:20;
+    background:var(--primary);
+    color:#fff;
+    padding:14px 16px 14px 16px;
+    padding-top:calc(14px + env(safe-area-inset-top));
+    display:flex;align-items:center;justify-content:space-between;
+    box-shadow:0 2px 12px rgba(0,0,0,0.15);
+    gap:10px;
+  }
+  .brand{display:flex;align-items:center;gap:10px;min-width:0;}
+  .brand .mark{
+    width:34px;height:34px;border-radius:10px;flex:none;
+    background:radial-gradient(circle at 30% 30%, var(--accent), #C97A22);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Poppins';font-weight:800;font-size:16px;color:#3B2545;
+  }
+  .brand .name{font-family:'Poppins';font-weight:700;font-size:17px;letter-spacing:0.2px;}
+  .brand .tag{font-size:10px;color:#D8C7DE;margin-top:-2px;display:flex;align-items:center;gap:5px;}
+  .dot{width:7px;height:7px;border-radius:50%;background:#8A7B8E;flex:none;}
+  .dot.on{background:#5CC28A;}
+  .dot.busy{background:var(--accent);}
+  .dot.off{background:var(--danger);}
+  .profile-pill{
+    background:rgba(255,255,255,0.12);
+    border:1px solid rgba(255,255,255,0.25);
+    color:#fff;border-radius:999px;
+    padding:7px 12px;font-size:13.5px;font-weight:600;
+    display:flex;align-items:center;gap:6px;flex:none;
+  }
+  .profile-pill select{
+    background:transparent;border:none;color:#fff;font-weight:700;font-size:13.5px;
+    -webkit-appearance:none;appearance:none;padding-right:2px;max-width:110px;
+  }
+  .profile-pill select option{color:#2A1F2D;}
+
+  /* ---- main ---- */
+  main{padding:16px;max-width:640px;margin:0 auto;}
+  .screen{display:none;}
+  .screen.active{display:block;animation:fade .18s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  .card{
+    background:var(--surface);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:16px;
+    margin-bottom:14px;
+    border:1px solid var(--line);
+  }
+  .section-title{
+    font-size:12px;text-transform:uppercase;letter-spacing:0.08em;
+    color:var(--muted);font-weight:700;margin:0 0 10px 2px;
+  }
+  label{display:block;font-size:13px;font-weight:600;color:var(--primary);margin:14px 0 6px;}
+  label:first-of-type{margin-top:0;}
+  input[type=text],input[type=number],input[type=date],input[type=password],select,textarea{
+    width:100%;padding:11px 12px;border-radius:11px;border:1.5px solid var(--line);
+    background:#FDFBF8;font-size:15px;color:var(--ink);outline:none;
+  }
+  textarea{resize:vertical;font-family:ui-monospace,monospace;font-size:12.5px;}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent);background:#fff;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .chip-group{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;}
+  .chip{
+    padding:8px 14px;border-radius:999px;border:1.5px solid var(--line);
+    background:#FDFBF8;font-size:13.5px;font-weight:600;color:var(--primary-soft);
+    cursor:pointer;user-select:none;
+  }
+  .chip.selected{background:var(--primary);border-color:var(--primary);color:#fff;}
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0 4px;}
+  .switch{position:relative;width:46px;height:26px;flex:none;}
+  .switch input{opacity:0;width:0;height:0;}
+  .slider{position:absolute;inset:0;background:#E3D9CC;border-radius:999px;transition:.2s;cursor:pointer;}
+  .slider:before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3);}
+  .switch input:checked + .slider{background:var(--teal);}
+  .switch input:checked + .slider:before{transform:translateX(20px);}
+  .recurring-box{display:none;background:var(--teal-soft);border-radius:12px;padding:12px;margin-top:10px;}
+  .recurring-box.show{display:block;}
+
+  .btn{
+    width:100%;padding:14px;border:none;border-radius:12px;
+    background:var(--primary);color:#fff;font-weight:700;font-size:15.5px;
+    cursor:pointer;margin-top:16px;
+  }
+  .btn:active{transform:scale(0.99);}
+  .btn:disabled{opacity:.5;}
+  .btn.secondary{background:var(--accent);color:#3B2545;}
+  .btn.ghost{background:transparent;border:1.5px solid var(--line);color:var(--primary);}
+  .btn.danger{background:var(--danger);}
+  .btn.small{width:auto;padding:8px 14px;font-size:13px;margin-top:0;border-radius:9px;}
+
+  /* expense list */
+  .exp-date-group{margin-bottom:16px;}
+  .exp-date-label{font-size:12.5px;font-weight:700;color:var(--muted);margin:0 0 8px 4px;text-transform:uppercase;letter-spacing:.05em;}
+  .exp-item{
+    display:flex;align-items:center;gap:12px;
+    background:var(--surface);border:1px solid var(--line);border-radius:14px;
+    padding:12px;margin-bottom:8px;
+  }
+  .exp-cat-dot{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;
+    background:var(--accent-soft);color:var(--primary);font-weight:800;font-size:15px;flex:none;}
+  .exp-mid{flex:1;min-width:0;}
+  .exp-cat{font-weight:700;font-size:14.5px;}
+  .exp-meta{font-size:12.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .exp-right{text-align:right;flex:none;}
+  .exp-amt{font-size:16px;}
+  .recur-badge{display:inline-block;background:var(--teal-soft);color:var(--teal);font-size:10px;font-weight:700;
+    padding:2px 7px;border-radius:999px;margin-top:3px;}
+  .del-x{background:none;border:none;color:var(--muted);font-size:18px;padding:4px 2px;cursor:pointer;flex:none;}
+
+  .empty{text-align:center;padding:36px 20px;color:var(--muted);}
+  .empty .big{font-size:34px;margin-bottom:6px;}
+
+  /* dashboard */
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+  .stat-card{background:var(--primary);color:#fff;border-radius:14px;padding:14px;}
+  .stat-card.alt{background:var(--teal);}
+  .stat-card .lbl{font-size:11.5px;opacity:.8;text-transform:uppercase;letter-spacing:.05em;font-weight:700;}
+  .stat-card .val{font-family:'Poppins';font-weight:800;font-size:22px;margin-top:4px;}
+  canvas{max-width:100%;}
+  .legend-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13.5px;}
+  .legend-row:last-child{border-bottom:none;}
+  .legend-dot{width:11px;height:11px;border-radius:4px;flex:none;}
+  .legend-name{flex:1;font-weight:600;}
+  .legend-val{font-weight:700;}
+
+  /* upcoming */
+  .up-item{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);
+    border-left:4px solid var(--accent);border-radius:12px;padding:12px;margin-bottom:8px;}
+  .up-day{background:var(--accent-soft);color:#7A4B12;border-radius:10px;padding:8px 10px;text-align:center;flex:none;min-width:50px;}
+  .up-day .d{font-family:'Poppins';font-weight:800;font-size:17px;line-height:1;}
+  .up-day .m{font-size:10px;text-transform:uppercase;font-weight:700;}
+
+  /* shops */
+  .shop-chip-wrap{display:flex;flex-wrap:wrap;gap:8px;}
+  .shop-detail-card{margin-top:14px;}
+  .need-flag{display:inline-flex;align-items:center;gap:6px;background:var(--danger-soft);color:var(--danger);
+    font-weight:700;font-size:12.5px;padding:6px 10px;border-radius:999px;margin-top:8px;}
+  .ok-flag{display:inline-flex;align-items:center;gap:6px;background:var(--teal-soft);color:var(--teal);
+    font-weight:700;font-size:12.5px;padding:6px 10px;border-radius:999px;margin-top:8px;}
+
+  /* settings */
+  .manage-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);}
+  .manage-row:last-child{border-bottom:none;}
+  .manage-row .nm{font-weight:600;font-size:14.5px;}
+  .manage-row .master-tag{font-size:10.5px;background:var(--primary);color:#fff;padding:2px 7px;border-radius:999px;margin-left:6px;}
+  .add-inline{display:flex;gap:8px;margin-top:10px;}
+  .add-inline input{flex:1;}
+
+  /* bottom nav */
+  nav.tabbar{
+    position:fixed;bottom:0;left:0;right:0;z-index:30;
+    background:rgba(255,255,255,0.96);backdrop-filter:blur(10px);
+    border-top:1px solid var(--line);
+    display:flex;justify-content:space-around;
+    padding:8px 4px calc(8px + env(safe-area-inset-bottom)) 4px;
+  }
+  nav.tabbar button{
+    background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:3px;
+    color:var(--muted);font-size:10.5px;font-weight:600;padding:4px 8px;cursor:pointer;flex:1;
+  }
+  nav.tabbar button .ic{font-size:20px;line-height:1;}
+  nav.tabbar button.active{color:var(--primary);}
+
+  /* setup screen */
+  #setupScreen{
+    min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
+  }
+  .setup-card{max-width:460px;width:100%;background:var(--surface);border-radius:20px;padding:26px 22px;box-shadow:var(--shadow);}
+  .setup-steps{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:16px;}
+  .setup-steps ol{padding-left:18px;margin:8px 0;}
+  .setup-steps code{background:#F1E9DE;padding:1px 5px;border-radius:5px;font-size:12px;}
+  .err-msg{color:var(--danger);font-size:13px;margin-top:8px;display:none;}
+
+  ::-webkit-scrollbar{display:none;}
+</style>
+</head>
+<body>
+
+<!-- ============ SETUP SCREEN (shown until Firebase is configured) ============ -->
+<div id="setupScreen">
+  <div class="setup-card">
+    <div class="brand" style="margin-bottom:14px;">
+      <div class="mark">₹</div>
+      <div><div class="name tamil" style="font-size:19px;">வீடு செலவு <span style="font-family:'Poppins';font-size:14px;color:var(--muted);">· Veedu Selavu</span></div><div class="tag" style="color:var(--muted);">connect your Firebase project</div></div>
+    </div>
+    <div class="setup-steps">
+      This app stores data in <strong>your own free Firebase project</strong> so every family member's phone stays in sync. One-time setup:
+      <ol>
+        <li>Go to <code>console.firebase.google.com</code> → Create a project</li>
+        <li>Build → <strong>Firestore Database</strong> → Create database → start in <strong>test mode</strong></li>
+        <li>Build → <strong>Authentication</strong> → Sign-in method → enable <strong>Anonymous</strong></li>
+        <li>Project settings → General → scroll to "Your apps" → Add app → Web (&lt;/&gt;) → copy the <code>firebaseConfig</code> object</li>
+        <li>Paste that whole object below</li>
+      </ol>
+    </div>
+    <label style="margin-top:0;">Paste your firebaseConfig</label>
+    <textarea id="configInput" rows="8" placeholder='{
+  apiKey: "...",
+  authDomain: "...",
+  projectId: "...",
+  storageBucket: "...",
+  messagingSenderId: "...",
+  appId: "..."
+}'></textarea>
+    <div class="err-msg" id="setupErr"></div>
+    <button class="btn" id="connectBtn">Connect</button>
+  </div>
+</div>
+
+<!-- ============ MAIN APP (hidden until connected) ============ -->
+<div id="appRoot" style="display:none;">
+
+<div class="topbar">
+  <div class="brand">
+    <div class="mark">₹</div>
+    <div style="min-width:0;">
+      <div class="name tamil">வீடு செலவு</div>
+      <div class="tag"><span class="dot" id="syncDot"></span><span id="syncLabel">Connecting…</span></div>
+    </div>
+  </div>
+  <div class="profile-pill">
+    <span>👤</span>
+    <select id="profileSelect"></select>
+  </div>
+</div>
+
+<main>
+
+  <!-- ADD EXPENSE -->
+  <section class="screen active" id="screen-add">
+    <div class="card">
+      <div class="section-title">New Expense</div>
+
+      <label>Amount (₹)</label>
+      <input type="number" id="f_amount" inputmode="decimal" placeholder="0" min="0" step="0.01">
+
+      <label>Category</label>
+      <div class="chip-group" id="f_categoryChips"></div>
+
+      <div class="row2">
+        <div>
+          <label>Date</label>
+          <input type="date" id="f_date">
+        </div>
+        <div>
+          <label>Paid by</label>
+          <select id="f_paidBy"></select>
+        </div>
+      </div>
+
+      <label>Shop / Vendor</label>
+      <input type="text" id="f_shop" list="shopList" placeholder="e.g. Reliance Fresh, Local Kirana">
+      <datalist id="shopList"></datalist>
+
+      <label>Note (optional)</label>
+      <input type="text" id="f_note" placeholder="Anything to remember this by">
+
+      <div class="toggle-row">
+        <div>
+          <div style="font-weight:700;font-size:14.5px;">Recurring expense?</div>
+          <div style="font-size:12px;color:var(--muted);">e.g. rent, EMI, subscriptions</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="f_recurring">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="recurring-box" id="recurringBox">
+        <label style="margin-top:0;">Frequency</label>
+        <select id="f_frequency">
+          <option value="weekly">Weekly</option>
+          <option value="monthly" selected>Monthly</option>
+          <option value="yearly">Yearly</option>
+        </select>
+
+        <div id="freqWeekly" style="display:none;">
+          <label>Day of week</label>
+          <select id="f_weekday">
+            <option value="0">Sunday</option><option value="1">Monday</option>
+            <option value="2">Tuesday</option><option value="3">Wednesday</option>
+            <option value="4">Thursday</option><option value="5">Friday</option>
+            <option value="6">Saturday</option>
+          </select>
+        </div>
+        <div id="freqMonthly">
+          <label>Day of month</label>
+          <input type="number" id="f_monthday" min="1" max="31" value="1">
+        </div>
+        <div id="freqYearly" style="display:none;">
+          <label>Date every year</label>
+          <input type="date" id="f_yearlydate">
+        </div>
+      </div>
+
+      <button class="btn" id="saveExpenseBtn">Save Expense</button>
+    </div>
+  </section>
+
+  <!-- EXPENSES LIST -->
+  <section class="screen" id="screen-list">
+    <div class="card" style="padding:12px 16px;">
+      <div class="row2" style="gap:10px;">
+        <select id="filterCategory"><option value="">All Categories</option></select>
+        <select id="filterMonth"></select>
+      </div>
+    </div>
+    <div id="expenseListWrap"></div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section class="screen" id="screen-dash">
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="lbl">Spent this month</div>
+        <div class="val" id="statMonthTotal">₹0</div>
+      </div>
+      <div class="stat-card alt">
+        <div class="lbl">Due next 7 days</div>
+        <div class="val" id="statUpcomingTotal">₹0</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Spend by Category — This Month</div>
+      <canvas id="catPieChart" height="220"></canvas>
+      <div id="catLegend" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Last 6 Months</div>
+      <canvas id="trendBarChart" height="200"></canvas>
+    </div>
+  </section>
+
+  <!-- UPCOMING -->
+  <section class="screen" id="screen-upcoming">
+    <div class="card" style="background:var(--primary);color:#fff;">
+      <div class="section-title" style="color:#D8C7DE;">Coming Week</div>
+      <div style="font-family:'Poppins';font-weight:800;font-size:24px;" id="upcomingHeaderTotal">₹0 expected</div>
+      <div style="font-size:12.5px;color:#D8C7DE;margin-top:2px;">Based on your recurring expenses</div>
+    </div>
+    <div id="upcomingListWrap"></div>
+  </section>
+
+  <!-- SHOPS -->
+  <section class="screen" id="screen-shops">
+    <div class="card">
+      <div class="section-title">Your Shops</div>
+      <div class="shop-chip-wrap" id="shopChipWrap"></div>
+    </div>
+    <div id="shopDetailWrap"></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="screen" id="screen-settings">
+    <div class="card">
+      <div class="section-title">Family Members</div>
+      <div id="memberManageList"></div>
+      <div class="add-inline">
+        <input type="text" id="newMemberName" placeholder="Add member name">
+        <button class="btn small" id="addMemberBtn">Add</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Categories</div>
+      <div id="categoryManageList"></div>
+      <div class="add-inline">
+        <input type="text" id="newCategoryName" placeholder="Add category">
+        <button class="btn small" id="addCategoryBtn">Add</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Connection</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">
+        All data lives in your Firebase project and syncs live across every device connected to it.
+      </div>
+      <button class="btn ghost" id="disconnectBtn">Disconnect this device</button>
+    </div>
+  </section>
+
+</main>
+
+<nav class="tabbar">
+  <button data-screen="add" class="active"><span class="ic">➕</span>Add</button>
+  <button data-screen="list"><span class="ic">🧾</span>Expenses</button>
+  <button data-screen="dash"><span class="ic">📊</span>Dashboard</button>
+  <button data-screen="upcoming"><span class="ic">📅</span>Upcoming</button>
+  <button data-screen="shops"><span class="ic">🏬</span>Shops</button>
+  <button data-screen="settings"><span class="ic">⚙️</span>More</button>
+</nav>
+
+</div><!-- /appRoot -->
+
+<script>
+/* ============ DEFAULTS ============ */
+const DEFAULT_MEMBERS = [
+  {name:'Appa', isMaster:false},
+  {name:'Amma', isMaster:false},
+  {name:'Sister', isMaster:false},
+  {name:'Master (View All)', isMaster:true}
+];
+const DEFAULT_CATEGORIES = [
+  'Groceries / Ration','Vegetables & Fruits','Milk & Dairy','Rent / Home Loan EMI',
+  'Electricity Bill (EB)','Water Bill','Gas Cylinder (LPG)','Mobile & Internet',
+  'School / Tuition Fees','Transport & Fuel','Medical & Health',
+  'Domestic Help','Dining Out','Entertainment','Clothing & Footwear',
+  'Pongal & Deepavali Shopping','Temple & Poojai Expenses','Kalyanam & Family Functions',
+  'Chit Fund / Committee','Insurance & Investments','Household Items','Miscellaneous'
+];
+const CAT_COLORS = ['#3B2545','#E89B3C','#1F6F6B','#C1503F','#8A5FA0','#4B8C8A',
+  '#D9A441','#7B3F3F','#5D7A9E','#A0724A','#6B8E4E','#9E5C7A','#3E6E8E','#C97A22',
+  '#4F5D75','#8E5C3E','#5A8C8E','#9E7A5C','#6E4F75'];
+
+/* ============ STATE ============ */
+let db=null, auth=null;
+let members=[], categories=[], expenses=[];
+let currentUserId = localStorage.getItem('ghar_currentUser') || '';
+let unsubMembers=null, unsubCategories=null, unsubExpenses=null;
+
+function fmt(n){ return '₹' + Number(n||0).toLocaleString('en-IN', {maximumFractionDigits:0}); }
+function catColor(cat){ const idx = categories.findIndex(c=>c.name===cat); return CAT_COLORS[(idx<0?0:idx) % CAT_COLORS.length]; }
+function currentUser(){ return members.find(m=>m.id===currentUserId) || members[0] || null; }
+function isMaster(){ const u=currentUser(); return !!(u && u.isMaster); }
+function nonMasterMembers(){ return members.filter(m=>!m.isMaster); }
+function visibleExpenses(){ return isMaster() ? expenses : expenses.filter(e=>e.enteredBy===currentUserId); }
+
+function setSyncStatus(state, label){
+  document.getElementById('syncDot').className = 'dot ' + state;
+  document.getElementById('syncLabel').textContent = label;
+}
+
+/* ============ FIREBASE CONNECT ============ */
+function tryAutoConnect(){
+  const saved = localStorage.getItem('ghar_firebaseConfig');
+  if(saved){
+    try{ connectFirebase(JSON.parse(saved)); }
+    catch(e){ /* fall through to setup screen */ }
+  }
+}
+document.getElementById('connectBtn').addEventListener('click', ()=>{
+  const raw = document.getElementById('configInput').value.trim();
+  const errEl = document.getElementById('setupErr');
+  errEl.style.display='none';
+  if(!raw){ errEl.textContent='Please paste your firebaseConfig object.'; errEl.style.display='block'; return; }
+  let cfg;
+  try{
+    // allow pasting the raw JS object literal (unquoted keys) as copied from Firebase console
+    cfg = new Function('return (' + raw + ')')();
+  }catch(e){
+    errEl.textContent='That doesn\'t look like a valid config object. Please paste it exactly as copied from Firebase.';
+    errEl.style.display='block';
+    return;
+  }
+  if(!cfg.apiKey || !cfg.projectId){
+    errEl.textContent='Config is missing apiKey/projectId — please copy the full object.';
+    errEl.style.display='block';
+    return;
+  }
+  localStorage.setItem('ghar_firebaseConfig', JSON.stringify(cfg));
+  connectFirebase(cfg);
+});
+document.getElementById('disconnectBtn').addEventListener('click', ()=>{
+  if(!confirm('Disconnect this device from Firebase? Your data stays safe in Firebase — you can reconnect anytime with the same config.')) return;
+  localStorage.removeItem('ghar_firebaseConfig');
+  location.reload();
+});
+
+function connectFirebase(cfg){
+  try{
+    if(!firebase.apps.length) firebase.initializeApp(cfg);
+    db = firebase.firestore();
+    db.settings({ experimentalAutoDetectLongPolling: true, useFetchStreams: false, merge: true });
+    auth = firebase.auth();
+  }catch(e){
+    document.getElementById('setupErr').textContent = 'Could not connect: ' + e.message;
+    document.getElementById('setupErr').style.display='block';
+    return;
+  }
+  document.getElementById('setupScreen').style.display='none';
+  document.getElementById('appRoot').style.display='block';
+  setSyncStatus('busy','Connecting…');
+
+  auth.signInAnonymously().catch(err=>{
+    setSyncStatus('off','Connection failed');
+    alert('Firebase connection error: ' + err.message + '\n\nCheck that Anonymous sign-in is enabled in your Firebase Authentication settings.');
+  });
+
+  auth.onAuthStateChanged(user=>{
+    if(user) startListeners();
+  });
+}
+
+/* ============ FIRESTORE LISTENERS ============ */
+let membersLoaded=false, categoriesLoaded=false, expensesLoaded=false;
+function maybeFinishInit(){
+  if(membersLoaded && categoriesLoaded && expensesLoaded){
+    setSyncStatus('on','Synced');
+    if(!currentUserId || !members.find(m=>m.id===currentUserId)){
+      currentUserId = (members[0]||{}).id || '';
+      localStorage.setItem('ghar_currentUser', currentUserId);
+    }
+    renderEverything();
+  }
+}
+
+function startListeners(){
+  if(unsubMembers) unsubMembers();
+  if(unsubCategories) unsubCategories();
+  if(unsubExpenses) unsubExpenses();
+
+  unsubMembers = db.collection('members').onSnapshot(async snap=>{
+    if(snap.empty && !membersLoaded){
+      // seed defaults once
+      const batch = db.batch();
+      DEFAULT_MEMBERS.forEach(m=>{ const ref = db.collection('members').doc(); batch.set(ref, m); });
+      await batch.commit().catch(()=>{});
+      return; // next snapshot will carry the seeded data
+    }
+    members = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    membersLoaded = true;
+    maybeFinishInit();
+    if(membersLoaded && categoriesLoaded && expensesLoaded) renderEverything();
+  }, err=>{ setSyncStatus('off','Sync error'); console.error(err); });
+
+  unsubCategories = db.collection('categories').onSnapshot(async snap=>{
+    if(snap.empty && !categoriesLoaded){
+      const batch = db.batch();
+      DEFAULT_CATEGORIES.forEach((name,i)=>{ const ref=db.collection('categories').doc(); batch.set(ref,{name, order:i}); });
+      await batch.commit().catch(()=>{});
+      return;
+    }
+    categories = snap.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=>(a.order||0)-(b.order||0));
+    categoriesLoaded = true;
+    maybeFinishInit();
+    if(membersLoaded && categoriesLoaded && expensesLoaded) renderEverything();
+  }, err=>{ setSyncStatus('off','Sync error'); console.error(err); });
+
+  unsubExpenses = db.collection('expenses').onSnapshot(snap=>{
+    expenses = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    expensesLoaded = true;
+    maybeFinishInit();
+    if(membersLoaded && categoriesLoaded) renderEverything();
+  }, err=>{ setSyncStatus('off','Sync error'); console.error(err); });
+}
+
+function renderEverything(){
+  renderProfileSelect();
+  renderCategoryChips();
+  renderPaidByOptions();
+  renderShopDatalist();
+  renderExpenseList();
+  renderDashboard();
+  renderUpcoming();
+  renderShops();
+  renderSettings();
+}
+
+/* ============ NAV ============ */
+const screens = ['add','list','dash','upcoming','shops','settings'];
+document.querySelectorAll('nav.tabbar button').forEach(btn=>{
+  btn.addEventListener('click', ()=>goTo(btn.dataset.screen));
+});
+function goTo(name){
+  screens.forEach(s=>document.getElementById('screen-'+s).classList.toggle('active', s===name));
+  document.querySelectorAll('nav.tabbar button').forEach(b=>b.classList.toggle('active', b.dataset.screen===name));
+  if(name==='list') renderExpenseList();
+  if(name==='dash') renderDashboard();
+  if(name==='upcoming') renderUpcoming();
+  if(name==='shops') renderShops();
+  if(name==='settings') renderSettings();
+}
+
+/* ============ PROFILE SWITCHER ============ */
+function renderProfileSelect(){
+  const sel = document.getElementById('profileSelect');
+  sel.innerHTML = members.map(m=>`<option value="${m.id}" ${m.id===currentUserId?'selected':''}>${m.name}</option>`).join('');
+}
+document.getElementById('profileSelect').addEventListener('change', e=>{
+  currentUserId = e.target.value;
+  localStorage.setItem('ghar_currentUser', currentUserId);
+  renderPaidByOptions();
+  renderExpenseList(); renderDashboard(); renderUpcoming(); renderShops();
+});
+
+/* ============ ADD EXPENSE FORM ============ */
+function renderCategoryChips(){
+  const wrap = document.getElementById('f_categoryChips');
+  wrap.innerHTML = categories.map((c,i)=>`<div class="chip ${i===0?'selected':''}" data-cat="${c.name}">${c.name}</div>`).join('');
+  wrap.querySelectorAll('.chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      wrap.querySelectorAll('.chip').forEach(c=>c.classList.remove('selected'));
+      chip.classList.add('selected');
+    });
+  });
+}
+function renderPaidByOptions(){
+  const sel = document.getElementById('f_paidBy');
+  const opts = nonMasterMembers();
+  sel.innerHTML = opts.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+  if(!isMaster() && opts.find(m=>m.id===currentUserId)) sel.value = currentUserId;
+}
+function renderShopDatalist(){
+  const dl = document.getElementById('shopList');
+  const shops = [...new Set(expenses.map(e=>e.shop).filter(Boolean))];
+  dl.innerHTML = shops.map(s=>`<option value="${s}">`).join('');
+}
+
+document.getElementById('f_recurring').addEventListener('change', e=>{
+  document.getElementById('recurringBox').classList.toggle('show', e.target.checked);
+});
+document.getElementById('f_frequency').addEventListener('change', e=>{
+  document.getElementById('freqWeekly').style.display = e.target.value==='weekly' ? 'block':'none';
+  document.getElementById('freqMonthly').style.display = e.target.value==='monthly' ? 'block':'none';
+  document.getElementById('freqYearly').style.display = e.target.value==='yearly' ? 'block':'none';
+});
+document.getElementById('f_date').valueAsDate = new Date();
+
+document.getElementById('saveExpenseBtn').addEventListener('click', async ()=>{
+  const amount = parseFloat(document.getElementById('f_amount').value);
+  const catChip = document.querySelector('#f_categoryChips .chip.selected');
+  const date = document.getElementById('f_date').value;
+  const paidBy = document.getElementById('f_paidBy').value;
+  const shop = document.getElementById('f_shop').value.trim();
+  const note = document.getElementById('f_note').value.trim();
+  const recurring = document.getElementById('f_recurring').checked;
+
+  if(!amount || amount<=0){ alert('Please enter a valid amount.'); return; }
+  if(!catChip){ alert('Please choose a category.'); return; }
+  if(!date){ alert('Please choose a date.'); return; }
+
+  const exp = {
+    amount, category: catChip.dataset.cat, date, paidBy, shop, note,
+    enteredBy: currentUserId,
+    isRecurring: recurring,
+    createdAt: Date.now()
+  };
+  if(recurring){
+    const freq = document.getElementById('f_frequency').value;
+    exp.frequency = freq;
+    if(freq==='weekly') exp.recurWeekday = parseInt(document.getElementById('f_weekday').value,10);
+    if(freq==='monthly') exp.recurMonthday = Math.min(31, Math.max(1, parseInt(document.getElementById('f_monthday').value,10)||1));
+    if(freq==='yearly'){
+      const yd = document.getElementById('f_yearlydate').value;
+      if(yd){ const d=new Date(yd+'T00:00:00'); exp.recurMonth=d.getMonth(); exp.recurDay=d.getDate(); }
+    }
+  }
+  const btn = document.getElementById('saveExpenseBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try{
+    await db.collection('expenses').add(exp);
+    document.getElementById('f_amount').value='';
+    document.getElementById('f_shop').value='';
+    document.getElementById('f_note').value='';
+    document.getElementById('f_recurring').checked=false;
+    document.getElementById('recurringBox').classList.remove('show');
+    document.getElementById('f_date').valueAsDate = new Date();
+    goTo('list');
+  }catch(e){
+    alert('Could not save: ' + e.message);
+  }
+  btn.disabled = false; btn.textContent = 'Save Expense';
+});
+
+/* ============ EXPENSE LIST ============ */
+function renderFilterOptions(){
+  const catSel = document.getElementById('filterCategory');
+  const prevCat = catSel.value;
+  catSel.innerHTML = '<option value="">All Categories</option>' + categories.map(c=>`<option value="${c.name}">${c.name}</option>`).join('');
+  catSel.value = prevCat;
+
+  const monthSel = document.getElementById('filterMonth');
+  const prevMon = monthSel.value;
+  const months = [...new Set(visibleExpenses().map(e=>e.date.slice(0,7)))].sort().reverse();
+  const thisMonth = new Date().toISOString().slice(0,7);
+  if(!months.includes(thisMonth)) months.unshift(thisMonth);
+  monthSel.innerHTML = '<option value="">All Time</option>' + months.map(m=>{
+    const [y,mo]=m.split('-');
+    const label = new Date(y,mo-1,1).toLocaleDateString('en-IN',{month:'long',year:'numeric'});
+    return `<option value="${m}">${label}</option>`;
+  }).join('');
+  monthSel.value = prevMon || thisMonth;
+}
+
+function renderExpenseList(){ renderFilterOptions(); doRenderList(); }
+document.getElementById('filterCategory').addEventListener('change', doRenderList);
+document.getElementById('filterMonth').addEventListener('change', doRenderList);
+
+function doRenderList(){
+  const catF = document.getElementById('filterCategory').value;
+  const monF = document.getElementById('filterMonth').value;
+  let list = visibleExpenses();
+  if(catF) list = list.filter(e=>e.category===catF);
+  if(monF) list = list.filter(e=>e.date.slice(0,7)===monF);
+  list = list.slice().sort((a,b)=> b.date.localeCompare(a.date) || (b.createdAt||0)-(a.createdAt||0));
+
+  const wrap = document.getElementById('expenseListWrap');
+  if(list.length===0){
+    wrap.innerHTML = `<div class="empty"><div class="big">🧾</div>No expenses here yet.<br>Add one from the + tab.</div>`;
+    return;
+  }
+  const groups = {};
+  list.forEach(e=>{ (groups[e.date] = groups[e.date]||[]).push(e); });
+
+  wrap.innerHTML = Object.keys(groups).map(date=>{
+    const dLabel = new Date(date+'T00:00:00').toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'});
+    const items = groups[date].map(e=>{
+      const payer = members.find(m=>m.id===e.paidBy);
+      const enterer = members.find(m=>m.id===e.enteredBy);
+      return `<div class="exp-item">
+        <div class="exp-cat-dot" style="background:${catColor(e.category)}22;color:${catColor(e.category)}">${e.category.charAt(0)}</div>
+        <div class="exp-mid">
+          <div class="exp-cat">${e.category}</div>
+          <div class="exp-meta">${e.shop ? e.shop+' • ':''}${payer?payer.name:''}${isMaster() && enterer ? ' • entered by '+enterer.name : ''}</div>
+          ${e.isRecurring ? `<span class="recur-badge">🔁 ${e.frequency}</span>` : ''}
+        </div>
+        <div class="exp-right"><div class="exp-amt amount">${fmt(e.amount)}</div></div>
+        <button class="del-x" data-id="${e.id}">✕</button>
+      </div>`;
+    }).join('');
+    return `<div class="exp-date-group"><div class="exp-date-label">${dLabel}</div>${items}</div>`;
+  }).join('');
+
+  wrap.querySelectorAll('.del-x').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      if(confirm('Delete this expense?')){
+        try{ await db.collection('expenses').doc(btn.dataset.id).delete(); }
+        catch(e){ alert('Could not delete: ' + e.message); }
+      }
+    });
+  });
+}
+
+/* ============ DASHBOARD ============ */
+let pieChartInst=null, barChartInst=null;
+function renderDashboard(){
+  const now = new Date();
+  const ym = now.toISOString().slice(0,7);
+  const monthExpenses = visibleExpenses().filter(e=>e.date.slice(0,7)===ym);
+  const monthTotal = monthExpenses.reduce((s,e)=>s+e.amount,0);
+  document.getElementById('statMonthTotal').textContent = fmt(monthTotal);
+
+  const upcoming = computeUpcoming(7);
+  const upTotal = upcoming.reduce((s,u)=>s+u.expense.amount,0);
+  document.getElementById('statUpcomingTotal').textContent = fmt(upTotal);
+
+  const totals = {};
+  monthExpenses.forEach(e=>{ totals[e.category]=(totals[e.category]||0)+e.amount; });
+  const catNames = Object.keys(totals).sort((a,b)=>totals[b]-totals[a]);
+  const colors = catNames.map(catColor);
+
+  const chartsAvailable = typeof Chart !== 'undefined';
+  const pieCanvas = document.getElementById('catPieChart');
+
+  if(catNames.length===0){
+    document.getElementById('catLegend').innerHTML = `<div class="empty" style="padding:20px;">No spending recorded this month yet.</div>`;
+    pieCanvas.style.display='none';
+  } else if(!chartsAvailable){
+    pieCanvas.style.display='none';
+    if(!document.getElementById('chartWarnBanner')){
+      const warn = document.createElement('div');
+      warn.id='chartWarnBanner';
+      warn.style.cssText='background:var(--danger-soft);color:var(--danger);font-size:12.5px;font-weight:600;padding:8px 10px;border-radius:10px;margin-bottom:10px;';
+      warn.textContent = 'Charts couldn\'t load (network blocked the chart library) — showing totals as a list instead.';
+      pieCanvas.parentNode.insertBefore(warn, pieCanvas);
+    }
+  } else {
+    pieCanvas.style.display='block';
+    const existingWarn = document.getElementById('chartWarnBanner');
+    if(existingWarn) existingWarn.remove();
+    if(pieChartInst) pieChartInst.destroy();
+    const ctx = pieCanvas.getContext('2d');
+    pieChartInst = new Chart(ctx, {
+      type:'doughnut',
+      data:{ labels:catNames, datasets:[{data:catNames.map(c=>totals[c]), backgroundColor:colors, borderWidth:2, borderColor:'#fff'}] },
+      options:{ plugins:{legend:{display:false}}, cutout:'62%' }
+    });
+  }
+  if(catNames.length>0){
+    document.getElementById('catLegend').innerHTML = catNames.map(c=>`
+      <div class="legend-row">
+        <div class="legend-dot" style="background:${catColor(c)}"></div>
+        <div class="legend-name">${c}</div>
+        <div class="legend-val amount">${fmt(totals[c])}</div>
+      </div>`).join('');
+  }
+
+  const monthKeys = [];
+  for(let i=5;i>=0;i--){ const d = new Date(now.getFullYear(), now.getMonth()-i, 1); monthKeys.push(d.toISOString().slice(0,7)); }
+  const monthTotals = monthKeys.map(mk=>visibleExpenses().filter(e=>e.date.slice(0,7)===mk).reduce((s,e)=>s+e.amount,0));
+  const monthLabels = monthKeys.map(mk=>{ const [y,mo]=mk.split('-'); return new Date(y,mo-1,1).toLocaleDateString('en-IN',{month:'short'}); });
+  const barCanvas = document.getElementById('trendBarChart');
+  if(chartsAvailable){
+    barCanvas.style.display='block';
+    if(barChartInst) barChartInst.destroy();
+    const ctx2 = barCanvas.getContext('2d');
+    barChartInst = new Chart(ctx2, {
+      type:'bar',
+      data:{ labels:monthLabels, datasets:[{ data:monthTotals, backgroundColor:'#3B2545', borderRadius:6, maxBarThickness:34 }]},
+      options:{ plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true, ticks:{ callback:v=>'₹'+v } } } }
+    });
+  } else {
+    barCanvas.style.display='none';
+    const trendCard = barCanvas.parentNode;
+    let list = trendCard.querySelector('.trendFallback');
+    if(!list){ list = document.createElement('div'); list.className='trendFallback'; trendCard.appendChild(list); }
+    list.innerHTML = monthLabels.map((lbl,i)=>`
+      <div class="legend-row"><div class="legend-name">${lbl}</div><div class="legend-val amount">${fmt(monthTotals[i])}</div></div>`).join('');
+  }
+}
+
+/* ============ RECURRING ENGINE ============ */
+function lastDayOfMonth(y,m){ return new Date(y, m+1, 0).getDate(); }
+function computeUpcoming(days){
+  const results = [];
+  const pool = visibleExpenses().filter(e=>e.isRecurring);
+  const today = new Date(); today.setHours(0,0,0,0);
+  for(let i=0;i<days;i++){
+    const d = new Date(today); d.setDate(d.getDate()+i);
+    pool.forEach(e=>{
+      let hit=false;
+      if(e.frequency==='weekly' && d.getDay()===e.recurWeekday) hit=true;
+      if(e.frequency==='monthly'){
+        const target = Math.min(e.recurMonthday, lastDayOfMonth(d.getFullYear(), d.getMonth()));
+        if(d.getDate()===target) hit=true;
+      }
+      if(e.frequency==='yearly' && d.getMonth()===e.recurMonth && d.getDate()===e.recurDay) hit=true;
+      if(hit) results.push({ date:new Date(d), expense:e });
+    });
+  }
+  results.sort((a,b)=>a.date-b.date);
+  return results;
+}
+function renderUpcoming(){
+  const list = computeUpcoming(7);
+  const total = list.reduce((s,u)=>s+u.expense.amount,0);
+  document.getElementById('upcomingHeaderTotal').textContent = fmt(total) + ' expected';
+  const wrap = document.getElementById('upcomingListWrap');
+  if(list.length===0){
+    wrap.innerHTML = `<div class="empty"><div class="big">📅</div>No recurring expenses due in the next 7 days.</div>`;
+    return;
+  }
+  wrap.innerHTML = list.map(u=>{
+    const payer = members.find(m=>m.id===u.expense.paidBy);
+    return `<div class="up-item">
+      <div class="up-day"><div class="d">${u.date.getDate()}</div><div class="m">${u.date.toLocaleDateString('en-IN',{month:'short'})}</div></div>
+      <div class="exp-mid">
+        <div class="exp-cat">${u.expense.category}</div>
+        <div class="exp-meta">${u.expense.shop ? u.expense.shop+' • ':''}${payer?payer.name:''} • ${u.date.toLocaleDateString('en-IN',{weekday:'long'})}</div>
+      </div>
+      <div class="exp-amt amount">${fmt(u.expense.amount)}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ============ SHOPS ============ */
+function renderShops(){
+  const shopSet = [...new Set(visibleExpenses().map(e=>e.shop).filter(Boolean))].sort();
+  const wrap = document.getElementById('shopChipWrap');
+  if(shopSet.length===0){
+    wrap.innerHTML = `<div class="empty" style="padding:14px;">No shops recorded yet.</div>`;
+    document.getElementById('shopDetailWrap').innerHTML='';
+    return;
+  }
+  wrap.innerHTML = shopSet.map(s=>`<div class="chip" data-shop="${s}">${s}</div>`).join('');
+  wrap.querySelectorAll('.chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      wrap.querySelectorAll('.chip').forEach(c=>c.classList.remove('selected'));
+      chip.classList.add('selected');
+      renderShopDetail(chip.dataset.shop);
+    });
+  });
+  renderShopDetail(shopSet[0]);
+  wrap.querySelector('.chip').classList.add('selected');
+}
+function renderShopDetail(shop){
+  const shopExpenses = visibleExpenses().filter(e=>e.shop===shop).sort((a,b)=>b.date.localeCompare(a.date));
+  const upcoming = computeUpcoming(7).filter(u=>u.expense.shop===shop);
+  const totalSpent = shopExpenses.reduce((s,e)=>s+e.amount,0);
+  const last = shopExpenses[0];
+  const detailWrap = document.getElementById('shopDetailWrap');
+  detailWrap.innerHTML = `
+    <div class="card shop-detail-card">
+      <div class="section-title">${shop}</div>
+      <div class="row2">
+        <div><div style="font-size:12px;color:var(--muted);">Total spent here</div><div class="amount" style="font-size:18px;">${fmt(totalSpent)}</div></div>
+        <div><div style="font-size:12px;color:var(--muted);">Visits logged</div><div class="amount" style="font-size:18px;">${shopExpenses.length}</div></div>
+      </div>
+      ${last ? `<div style="font-size:12.5px;color:var(--muted);margin-top:10px;">Last purchase: ${new Date(last.date+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})} — ${last.category} (${fmt(last.amount)})</div>` : ''}
+      ${upcoming.length>0
+        ? upcoming.map(u=>`<div class="need-flag">🛒 ${u.expense.category} needed on ${u.date.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})} (${fmt(u.expense.amount)})</div>`).join('<br>')
+        : `<div class="ok-flag">✓ Nothing recurring due here this week</div>`}
+    </div>`;
+}
+
+/* ============ SETTINGS ============ */
+function renderSettings(){
+  const memWrap = document.getElementById('memberManageList');
+  memWrap.innerHTML = members.map(m=>`
+    <div class="manage-row">
+      <div class="nm">${m.name}${m.isMaster?'<span class="master-tag">MASTER</span>':''}</div>
+      ${m.isMaster ? '' : `<button class="del-x" data-mid="${m.id}">✕</button>`}
+    </div>`).join('');
+  memWrap.querySelectorAll('.del-x').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const mid = btn.dataset.mid;
+      if(expenses.some(e=>e.paidBy===mid || e.enteredBy===mid)){
+        if(!confirm('This member has expenses linked to them. Delete anyway? Their past entries will stay but show as unknown.')) return;
+      }
+      try{ await db.collection('members').doc(mid).delete(); }
+      catch(e){ alert('Could not delete: ' + e.message); }
+    });
+  });
+
+  const catWrap = document.getElementById('categoryManageList');
+  catWrap.innerHTML = categories.map(c=>`
+    <div class="manage-row">
+      <div class="nm"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${catColor(c.name)};margin-right:8px;"></span>${c.name}</div>
+      <button class="del-x" data-cid="${c.id}">✕</button>
+    </div>`).join('');
+  catWrap.querySelectorAll('.del-x').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      try{ await db.collection('categories').doc(btn.dataset.cid).delete(); }
+      catch(e){ alert('Could not delete: ' + e.message); }
+    });
+  });
+}
+
+document.getElementById('addMemberBtn').addEventListener('click', async ()=>{
+  const input = document.getElementById('newMemberName');
+  const name = input.value.trim();
+  if(!name) return;
+  input.disabled = true;
+  try{ await db.collection('members').add({name, isMaster:false}); input.value=''; }
+  catch(e){ alert('Could not add: ' + e.message); }
+  input.disabled = false;
+});
+document.getElementById('addCategoryBtn').addEventListener('click', async ()=>{
+  const input = document.getElementById('newCategoryName');
+  const name = input.value.trim();
+  if(!name || categories.find(c=>c.name===name)) return;
+  input.disabled = true;
+  try{ await db.collection('categories').add({name, order: categories.length}); input.value=''; }
+  catch(e){ alert('Could not add: ' + e.message); }
+  input.disabled = false;
+});
+
+/* ============ INIT ============ */
+tryAutoConnect();
+</script>
+</body>
+</html>
