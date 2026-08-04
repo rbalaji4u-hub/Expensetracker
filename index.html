@@ -81,6 +81,7 @@
   .profile-pill select{
     background:transparent;border:none;color:#fff;font-weight:700;font-size:13.5px;
     -webkit-appearance:none;appearance:none;padding-right:2px;max-width:110px;
+    background-image:none;
   }
   .profile-pill select option{color:#2A1F2D;}
 
@@ -104,11 +105,25 @@
   }
   label{display:block;font-size:13px;font-weight:600;color:var(--primary);margin:14px 0 6px;}
   label:first-of-type{margin-top:0;}
+  
+  /* Input & Select Styling */
   input[type=text],input[type=number],input[type=date],input[type=password],input[type=month],select,textarea{
     width:100%;padding:11px 12px;border-radius:11px;border:1.5px solid var(--line);
     background:#FDFBF8;font-size:15px;color:var(--ink);outline:none;
     transition: background-color 0.4s ease, border-color 0.2s ease;
   }
+  
+  /* Custom Dropdown Arrow for iOS */
+  select {
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url('data:image/svg+xml;utf8,<svg fill="%233B2545" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 18px;
+    padding-right: 36px;
+  }
+  
   textarea{resize:vertical;font-family:ui-monospace,monospace;font-size:12.5px;}
   input:focus,select:focus,textarea:focus{border-color:var(--accent);background:#fff;}
   
@@ -316,9 +331,8 @@
       <label style="margin-top:12px;">Amount (₹)</label>
       <input type="number" id="f_amount" inputmode="decimal" placeholder="0" min="0" step="0.01">
 
-      <label>Category (Type to search)</label>
-      <input type="text" id="f_categoryInput" list="categoryDatalist" placeholder="Type or select a category...">
-      <datalist id="categoryDatalist"></datalist>
+      <label>Category</label>
+      <select id="f_categorySelect"></select>
 
       <div class="row2">
         <div>
@@ -531,8 +545,8 @@
     <label style="margin-top:12px;">Amount (₹)</label>
     <input type="number" id="edit_amount" inputmode="decimal" min="0" step="0.01">
 
-    <label>Category (Type to search)</label>
-    <input type="text" id="edit_categoryInput" list="categoryDatalist" placeholder="Type or select a category...">
+    <label>Category</label>
+    <select id="edit_categorySelect"></select>
 
     <div class="row2">
       <div>
@@ -784,7 +798,7 @@ function startListeners(){
 
 function renderEverything(){
   renderProfileSelect();
-  renderCategoryDatalist();
+  renderCategoryDropdowns();
   renderPayModeDropdown();
   renderPaidByOptions();
   renderShopDatalist();
@@ -810,7 +824,7 @@ function goTo(name){
   if(name==='settings') renderSettings();
 }
 
-/* ============ USER SWITCHING (MASTER ONLY REQUIRES PASSWORD) ============ */
+/* ============ USER SWITCHING ============ */
 function renderProfileSelect(){
   const sel = document.getElementById('profileSelect');
   sel.innerHTML = members.map(m=>`<option value="${m.id}" ${m.id===currentUserId?'selected':''}>${m.name}</option>`).join('');
@@ -984,7 +998,7 @@ function openEditModal(expId) {
   document.getElementById('edit_shop').value = exp.shop || '';
   document.getElementById('edit_note').value = exp.note || '';
 
-  document.getElementById('edit_categoryInput').value = exp.category || '';
+  document.getElementById('edit_categorySelect').value = exp.category || '';
 
   const paySel = document.getElementById('edit_payModeSelect');
   paySel.innerHTML = payModes.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
@@ -1041,7 +1055,7 @@ function closeEditModal() {
 document.getElementById('updateExpenseBtn').addEventListener('click', async () => {
   const id = document.getElementById('edit_id').value;
   const amount = parseFloat(document.getElementById('edit_amount').value);
-  const category = document.getElementById('edit_categoryInput').value.trim();
+  const category = document.getElementById('edit_categorySelect').value;
   const date = document.getElementById('edit_date').value;
   const paidBy = document.getElementById('edit_paidBy').value;
   const payMode = document.getElementById('edit_payModeSelect').value;
@@ -1050,7 +1064,7 @@ document.getElementById('updateExpenseBtn').addEventListener('click', async () =
   const isRecurring = document.getElementById('edit_recurring').checked;
 
   if (!amount || amount <= 0) { alert('Please enter a valid amount.'); return; }
-  if (!category) { alert('Please select or type a category.'); return; }
+  if (!category) { alert('Please select a category.'); return; }
   if (!date) { alert('Please select a date.'); return; }
 
   const updatedExp = {
@@ -1075,7 +1089,6 @@ document.getElementById('updateExpenseBtn').addEventListener('click', async () =
       }
     }
   } else {
-    // Clear recurring properties if toggled off
     updatedExp.frequency = firebase.firestore.FieldValue.delete();
     updatedExp.recurWeekday = firebase.firestore.FieldValue.delete();
     updatedExp.recurMonthday = firebase.firestore.FieldValue.delete();
@@ -1098,10 +1111,12 @@ document.getElementById('updateExpenseBtn').addEventListener('click', async () =
 });
 
 /* ============ ADD EXPENSE FORM ============ */
-function renderCategoryDatalist(){
+function renderCategoryDropdowns(){
   const sorted = [...categories].sort((a,b)=>a.name.localeCompare(b.name));
-  const dl = document.getElementById('categoryDatalist');
-  dl.innerHTML = sorted.map(c => `<option value="${c.name}">`).join('');
+  const optionsHtml = '<option value="" disabled selected>Select a category</option>' + sorted.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+  
+  document.getElementById('f_categorySelect').innerHTML = optionsHtml;
+  document.getElementById('edit_categorySelect').innerHTML = optionsHtml;
   
   // Also keep list filter sorted
   const filterSel = document.getElementById('filterCategory');
@@ -1141,7 +1156,7 @@ document.getElementById('f_date').valueAsDate = new Date();
 
 document.getElementById('saveExpenseBtn').addEventListener('click', async ()=>{
   const amount = parseFloat(document.getElementById('f_amount').value);
-  const selectedCategory = document.getElementById('f_categoryInput').value.trim();
+  const selectedCategory = document.getElementById('f_categorySelect').value;
   const payMode = document.getElementById('f_payModeSelect').value;
   const date = document.getElementById('f_date').value;
   const paidBy = document.getElementById('f_paidBy').value;
@@ -1150,7 +1165,7 @@ document.getElementById('saveExpenseBtn').addEventListener('click', async ()=>{
   const recurring = document.getElementById('f_recurring').checked;
 
   if(!amount || amount<=0){ alert('Please enter a valid amount.'); return; }
-  if(!selectedCategory){ alert('Please choose or type a category.'); return; }
+  if(!selectedCategory){ alert('Please select a category.'); return; }
   if(!date){ alert('Please choose a date.'); return; }
 
   const exp = {
@@ -1175,7 +1190,7 @@ document.getElementById('saveExpenseBtn').addEventListener('click', async ()=>{
   try{
     await db.collection('expenses').add(exp);
     document.getElementById('f_amount').value='';
-    document.getElementById('f_categoryInput').value='';
+    document.getElementById('f_categorySelect').value='';
     document.getElementById('f_shop').value='';
     document.getElementById('f_note').value='';
     document.getElementById('f_recurring').checked=false;
@@ -1194,7 +1209,7 @@ document.getElementById('saveExpenseBtn').addEventListener('click', async ()=>{
 
 /* ============ EXPENSE LIST ============ */
 function renderFilterOptions(){
-  renderCategoryDatalist();
+  renderCategoryDropdowns();
 
   const monthSel = document.getElementById('filterMonth');
   const prevMon = monthSel.value;
@@ -1320,25 +1335,21 @@ function renderDashboard(){
   document.getElementById('dashMonthPicker').value = dashFilterMonth;
 
   const todayStr = getTodayString();
-  const ym = dashFilterMonth; // Selected Month YYYY-MM
+  const ym = dashFilterMonth;
   const sourceExpenses = dashVisibleExpenses();
 
-  // "Spent in period" = expenses dated in selected month AND on/before today
   const spentExpenses = sourceExpenses.filter(e => e.date.slice(0, 7) === ym && e.date <= todayStr);
   const monthTotal = spentExpenses.reduce((s, e) => s + e.amount, 0);
   document.getElementById('statMonthTotal').textContent = fmt(monthTotal);
 
-  // Dues = recurring dues + future dated one-off expenses in selected month
   const upcomingThisMonth = computeUpcoming('customMonth', sourceExpenses, ym);
   const monthDuesTotal = upcomingThisMonth.reduce((s, u) => s + u.expense.amount, 0);
   document.getElementById('statUpcomingTotal').textContent = fmt(monthDuesTotal);
 
-  // Update Title
   const [y, m] = ym.split('-');
   const monthLabel = new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
   document.getElementById('catPieTitle').textContent = `Spend by Category — ${monthLabel}`;
 
-  // Compute category totals for ALREADY SPENT items only
   const totals = {};
   spentExpenses.forEach(e => { totals[e.category] = (totals[e.category] || 0) + e.amount; });
   const catNames = Object.keys(totals).sort((a, b) => totals[b] - totals[a]);
@@ -1372,7 +1383,6 @@ function renderDashboard(){
       </div>`).join('');
   }
 
-  // Trend Bar Chart - last 6 months up to selected month (excluding future dated entries)
   const selDate = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
   const monthKeys = [];
   for(let i = 5; i >= 0; i--){
@@ -1414,12 +1424,10 @@ function isAlreadyPaid(recurExp, targetDate, allExpenses) {
   return allExpenses.some(e => {
     if (e.category !== recurExp.category) return false;
     
-    // Monthly recurring check
     if (recurExp.frequency === 'monthly') {
       return e.date.slice(0, 7) === dateStr.slice(0, 7);
     }
     
-    // Weekly recurring check
     if (recurExp.frequency === 'weekly') {
       const expD = new Date(e.date + 'T00:00:00');
       const targetD = new Date(dateStr + 'T00:00:00');
@@ -1427,7 +1435,6 @@ function isAlreadyPaid(recurExp, targetDate, allExpenses) {
       return diffDays <= 3;
     }
     
-    // Yearly recurring check
     if (recurExp.frequency === 'yearly') {
       return e.date.slice(0, 4) === dateStr.slice(0, 4);
     }
@@ -1458,7 +1465,6 @@ function computeUpcoming(mode = 'thisMonth', expList = visibleExpenses(), target
     endDate = new Date(y, m, 0);
   }
 
-  // 1. Unpaid Recurring Expenses
   const pool = expList.filter(e => e.isRecurring);
   for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
     const curDate = new Date(d);
@@ -1478,7 +1484,6 @@ function computeUpcoming(mode = 'thisMonth', expList = visibleExpenses(), target
     });
   }
 
-  // 2. Future-Dated Specific Expenses (non-recurring OR future dated entries in window)
   expList.forEach(e => {
     if (e.date > todayStr) {
       const expD = new Date(e.date + 'T00:00:00');
